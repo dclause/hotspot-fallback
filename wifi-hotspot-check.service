@@ -1,0 +1,11 @@
+# This file should be placed at:
+# /etc/systemd/system/wifi-hotspot-check.service
+
+# WARNING: change the path in ExecStart to your hotspot_switcher.sh path
+
+[Unit]
+Description=Vérifie la connexion Wi-Fi principale
+
+[Service]
+Type=oneshot
+ExecStart=/your/path/to/hotspot_switcher.sh check

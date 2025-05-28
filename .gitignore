@@ -1,0 +1,11 @@
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor/IDE files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+*.bak
