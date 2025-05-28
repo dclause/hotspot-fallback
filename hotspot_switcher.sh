@@ -91,11 +91,31 @@ start_hotspot_nmcli() {
     # 3. Activate the hotspot connection
 
     log_message "Activating hotspot connection '$HOTSPOT_CON_NAME' on $WIFI_INTERFACE."
+    
+    # Enable IP forwarding
+    echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward > /dev/null
+    
+    # Configure NAT
+    sudo iptables -t nat -F
+    sudo iptables -t nat -A POSTROUTING -s 192.168.42.0/24 -j MASQUERADE
+    sudo iptables -A FORWARD -i "$WIFI_INTERFACE" -j ACCEPT
+    
+    # Activate the hotspot
     if sudo nmcli connection up "$HOTSPOT_CON_NAME"; then
         log_message "Hotspot '$HOTSPOT_CON_NAME' started successfully."
         # Verify if the interface is truly in AP mode
         if iw dev "$WIFI_INTERFACE" info | grep -q "type AP"; then
             log_message "Confirmation: Interface $WIFI_INTERFACE is in Access Point mode."
+            
+            # Set static IP on the interface
+            sudo ip addr flush dev "$WIFI_INTERFACE"
+            sudo ip addr add 192.168.42.1/24 dev "$WIFI_INTERFACE"
+            sudo ip link set "$WIFI_INTERFACE" up
+            
+            # Start dnsmasq for DHCP
+            sudo systemctl stop dnsmasq 2>/dev/null || true
+            sudo systemctl start dnsmasq
+            
         else
             log_message "WARNING: Interface $WIFI_INTERFACE may not be in AP mode as expected."
         fi
@@ -107,8 +127,23 @@ start_hotspot_nmcli() {
 # Function to stop the hotspot and reconnect to the main Wi-Fi
 stop_hotspot_nmcli() {
     log_message "Main Wi-Fi is back or stop was requested. Stopping hotspot '$HOTSPOT_CON_NAME'."
-    # Deactivates the hotspot connection if it's active.
-    sudo nmcli connection down "$HOTSPOT_CON_NAME" || true # '|| true' to ignore error if connection is not active
+    
+    # Clean up dnsmasq
+    log_message "Stopping dnsmasq service..."
+    sudo systemctl stop dnsmasq 2>/dev/null || true
+    
+    # Clean up iptables rules
+    log_message "Cleaning up iptables rules..."
+    sudo iptables -t nat -D POSTROUTING -s 192.168.42.0/24 -j MASQUERADE 2>/dev/null || true
+    sudo iptables -D FORWARD -i "$WIFI_INTERFACE" -j ACCEPT 2>/dev/null || true
+    
+    # Reset the interface
+    log_message "Resetting network interface..."
+    sudo ip addr flush dev "$WIFI_INTERFACE" 2>/dev/null || true
+    
+    # Deactivate the hotspot connection
+    log_message "Deactivating hotspot connection..."
+    sudo nmcli connection down "$HOTSPOT_CON_NAME" 2>/dev/null || true
 
     # #####
     # 1. Return the interface to NetworkManager's management and attempt to reconnect to the main Wi-Fi
@@ -120,6 +155,11 @@ stop_hotspot_nmcli() {
     sudo nmcli radio wifi on
     # Activates NetworkManager's networking capabilities.
     sudo nmcli networking on
+    
+    # Reset network interface
+    sudo ip link set "$WIFI_INTERFACE" down
+    sleep 2
+    sudo ip link set "$WIFI_INTERFACE" up
     sleep 5 # Give NM time to stabilize and scan
 
     # Forces NetworkManager to rescan for Wi-Fi networks.
