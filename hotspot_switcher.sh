@@ -165,7 +165,7 @@ check_main_wifi_and_act() {
     elif iw dev "$WIFI_INTERFACE" info | grep -q "type AP"; then
         log_message "Hotspot ('$HOTSPOT_SSID') active."
         # If the main Wi-Fi is available (connectable), stop the hotspot to switch
-        if nmcli -t -f NAME connection show | grep -q "^$WIFI_ID$"; then
+        if iwlist "$WIFI_INTERFACE" scan 2>/dev/null | grep -q "ESSID:\"$WIFI_ID\""; then
             log_message "Main Wi-Fi ('$WIFI_ID') detected. Stopping hotspot to switch."
             stop_hotspot_nmcli
         fi
