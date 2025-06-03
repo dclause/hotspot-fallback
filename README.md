@@ -10,7 +10,7 @@ If you bring it somewhere without a known Wi-Fi network, you'll lose access. Thi
 
 ## Installation
 
-Follow the instructions in the [setup guide](insert-path-here).
+Follow the instructions in the [setup guide](https://dominique-clause.com/en/blog/hotspot-fallback).
 
 ## Usage
 
